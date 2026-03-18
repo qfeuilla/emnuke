@@ -11,8 +11,11 @@ Em dashes have become the telltale sign of AI-generated text. emnuke is a browse
 
 Download the latest zip from the [Releases page](https://github.com/qfeuilla/emnuke/releases) and load it in your browser:
 
-- **Chrome/Edge**: `chrome://extensions` → Developer mode → Load unpacked
+- **Chrome**: `chrome://extensions` → Developer mode → Load unpacked
 - **Firefox**: `about:debugging` → Load Temporary Add-on → select `manifest.json`
+- **Edge**: `edge://extensions` → Developer mode → Load unpacked
+- **Safari**: Requires Xcode conversion (see [docs/DEPLOY.md](docs/DEPLOY.md))
+- **Opera**: `opera://extensions` → Developer mode → Load unpacked
 
 ## Modes
 
@@ -51,7 +54,7 @@ Search engine selectors are dynamically fetched from [uBlacklist's maintained co
 pnpm install
 pnpm dev            # Chrome with hot reload
 pnpm dev:firefox    # Firefox with hot reload
-pnpm build:all      # Build Chrome, Firefox, Edge
+pnpm build:all      # Build Chrome, Firefox, Edge, Safari, Opera
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add support for new sites.

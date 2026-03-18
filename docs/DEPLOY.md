@@ -13,6 +13,8 @@ The release workflow produces:
 - `emnuke-{version}-chrome.zip`
 - `emnuke-{version}-firefox.zip`
 - `emnuke-{version}-edge.zip`
+- `emnuke-{version}-safari.zip`
+- `emnuke-{version}-opera.zip`
 
 ## Installing from a release zip
 
@@ -49,9 +51,20 @@ Note: Firefox temporary add-ons are removed when you close Firefox. For permanen
 2. Upload the `-edge.zip` (same MV3 format as Chrome)
 3. Review takes 1-3 days
 
+### Safari
+1. Requires macOS with Xcode installed
+2. Run `xcrun safari-web-extension-converter .output/safari-mv3` to create an Xcode project
+3. Build and sign in Xcode
+4. Distribute via the Mac App Store or direct download
+
+### Opera Add-ons
+1. Create an account at https://addons.opera.com/developer/
+2. Upload the `-opera.zip`
+3. Review takes 1-3 days
+
 ## CI/CD
 
 - **On push/PR to main**: runs type-check (`pnpm compile`) and builds Chrome + Firefox
-- **On version tag** (`v*`): builds all platforms, creates a GitHub Release with zips attached
+- **On version tag** (`v*`): builds all 5 platforms (Chrome, Firefox, Edge, Safari, Opera), creates a GitHub Release with zips attached
 
 Future: automate store publishing via [wxt submit](https://wxt.dev/guide/publishing.html).

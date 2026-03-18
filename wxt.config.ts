@@ -14,5 +14,8 @@ export default defineConfig({
         },
       },
     }),
+    ...(browser === 'opera' && {
+      minimum_opera_version: '91',
+    }),
   }),
 });
