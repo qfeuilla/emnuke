@@ -1,4 +1,4 @@
-import { type NukeMode, type NukeSettings, DEFAULT_SETTINGS } from '@/utils/types';
+import { type NukeMode, type NukeSettings, loadSettings } from '@/utils/types';
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -26,7 +26,7 @@ export default defineContentScript({
       { file: 'startpage.yml', hostPattern: /^www\.startpage\.com$/ },
       { file: 'yandex.yml', hostPattern: /^yandex\.\w+(\.\w+)?$/ },
     ];
-    const CACHE_KEY = 'ublacklistSelectorsCache';
+    const CACHE_PREFIX = 'ublacklistSelectorsCache';
     const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
     // Extra container selectors per engine (stable data attributes that
@@ -36,18 +36,6 @@ export default defineContentScript({
       'google.yml': [
         '[data-docid]',  // Image result cards
       ],
-    };
-
-    // Hardcoded fallbacks per engine (from uBlacklist configs, 2026-03-06)
-    const FALLBACK_SELECTORS: Record<string, string[]> = {
-      'google.yml': ['.vt6azd:not(.g-blk)', '[data-news-cluster-id]', '.sHEJob', '.vCUuC', '.eejeod', '[data-docid]'],
-      'bing.yml': ['.b_algo', '.news-card', '.newscard'],
-      'duckduckgo.yml': [],
-      'brave.yml': ['.snippet[data-type="web"]', '.snippet[data-type="news"]', '.snippet[data-type="videos"]', '.image-result'],
-      'ecosia.yml': [],
-      'kagi.yml': [],
-      'startpage.yml': [],
-      'yandex.yml': [],
     };
 
     function parseSelectorsFromYaml(yaml: string): string[] {
@@ -63,83 +51,37 @@ export default defineContentScript({
       return [...new Set(selectors)];
     }
 
-    async function getSearchEngineSelectors(file: string): Promise<string[]> {
-      const extras = EXTRA_SELECTORS[file] ?? [];
-      const cacheKeyForFile = `${CACHE_KEY}_${file}`;
-      try {
-        const cached = await browser.storage.local.get(cacheKeyForFile);
-        const entry = cached[cacheKeyForFile] as { selectors: string[]; ts: number } | undefined;
-        if (entry && Date.now() - entry.ts < CACHE_TTL) {
-          return [...new Set([...entry.selectors, ...extras])];
-        }
-      } catch {}
-
-      const fallback = FALLBACK_SELECTORS[file] ?? [];
-      try {
-        const res = await fetch(UBLACKLIST_BASE + file);
-        if (!res.ok) return [...new Set([...fallback, ...extras])];
-        const yaml = await res.text();
-        const selectors = parseSelectorsFromYaml(yaml);
-        if (selectors.length === 0) return [...new Set([...fallback, ...extras])];
-        browser.storage.local.set({
-          [cacheKeyForFile]: { selectors, ts: Date.now() },
-        });
-        return [...new Set([...selectors, ...extras])];
-      } catch {
-        return [...new Set([...fallback, ...extras])];
-      }
+    function mergeSelectors(...arrays: string[][]): string[] {
+      return [...new Set(arrays.flat())];
     }
 
-    // --- Static configs for non-search-engine sites ---
-    //
-    // HOW TO ADD A NEW SITE
-    // =====================
-    //
-    // 1. Open the target site and find a post/card/result that contains an em dash.
-    //
-    // 2. Right-click it → Inspect. Walk up the DOM tree from the text to find
-    //    the outermost element that represents ONE item (post, comment, card).
-    //    Good signals:
-    //    - data-testid attributes (stable, set by developers for testing)
-    //    - Custom elements (e.g. <shreddit-post>, <article>)
-    //    - Semantic attributes (data-post-id, role="listitem")
-    //    Avoid: generated class names (.MjjYud, .vt6azd) as they change often.
-    //
-    // 3. Add an entry to STATIC_SITE_CONFIGS:
-    //
-    //    {
-    //      hostnames: ['www.example.com', 'example.com'],
-    //      cardSelectors: ['.my-card-selector'],
-    //      strategy: 'innermost' | 'outermost',
-    //    }
-    //
-    //    - hostnames: all hostname variants the site uses
-    //    - cardSelectors: CSS selectors for individual content cards.
-    //      List from most specific to least specific.
-    //    - strategy:
-    //        'innermost' → return the FIRST card match walking up from the text.
-    //          Use when cards are flat (not nested). Good for search engines.
-    //        'outermost' → return the LAST card match walking up from the text.
-    //          Use when cards nest wrappers (e.g. Reddit: article > shreddit-post).
-    //
-    // 4. For SEARCH ENGINES, prefer adding to UBLACKLIST_ENGINES instead.
-    //    uBlacklist maintains selectors for 10+ engines and we fetch them dynamically.
-    //    Only add to STATIC_SITE_CONFIGS if the site is not a search engine.
-    //
-    // SPECIAL CASES
-    // -------------
-    // Reddit comments: shreddit-comment elements nest (depth 0 contains depth 1, etc).
-    //   We handle this specially in findContentBlock(): instead of nuking the whole
-    //   shreddit-comment (which would kill child replies), we target the
-    //   div[slot="comment"] inside it and redact just the text body.
-    //   To add similar "redact but don't remove" behavior for another site,
-    //   see the isCommentBody() function.
-    //
-    // If no card selector matches, the generic fallback kicks in: BLOCK_SELECTORS
-    // (li, p, h1-h6, etc.) and a small-div heuristic. This works for most sites
-    // without any config, just less precisely.
-    //
-    const STATIC_SITE_CONFIGS: SiteConfig[] = [
+    async function getSearchEngineSelectors(file: string): Promise<string[]> {
+      const extras = EXTRA_SELECTORS[file] ?? [];
+      const cacheKey = `${CACHE_PREFIX}_${file}`;
+
+      const cached = await browser.storage.local.get(cacheKey);
+      const entry = cached[cacheKey] as { selectors: string[]; ts: number } | undefined;
+      if (entry && Date.now() - entry.ts < CACHE_TTL) {
+        return mergeSelectors(entry.selectors, extras);
+      }
+
+      const res = await fetch(UBLACKLIST_BASE + file);
+      if (!res.ok) {
+        console.error(`[emnuke] failed to fetch ${file}: ${res.status}`);
+        return extras;
+      }
+      const yaml = await res.text();
+      const selectors = parseSelectorsFromYaml(yaml);
+      if (selectors.length === 0) {
+        console.warn(`[emnuke] no selectors parsed from ${file}`);
+        return extras;
+      }
+      browser.storage.local.set({ [cacheKey]: { selectors, ts: Date.now() } });
+      return mergeSelectors(selectors, extras);
+    }
+
+    // See CONTRIBUTING.md for how to add new sites
+    const SITE_CONFIGS: SiteConfig[] = [
       {
         hostnames: ['www.reddit.com', 'reddit.com', 'old.reddit.com'],
         cardSelectors: [
@@ -188,17 +130,17 @@ export default defineContentScript({
     // Match current hostname against uBlacklist engines
     const matchedEngine = UBLACKLIST_ENGINES
       .find((e) => e.hostPattern.test(location.hostname));
-    const staticConfig = STATIC_SITE_CONFIGS
+    const staticConfig = SITE_CONFIGS
       .find((cfg) => cfg.hostnames.includes(location.hostname));
 
     // These get populated once selectors are resolved
     let activeCardSelectors: string[] = staticConfig?.cardSelectors ?? [];
     // Search engines use innermost (target individual results, not containers)
-    let cardStrategy: 'innermost' | 'outermost' = matchedEngine
+    const cardStrategy: 'innermost' | 'outermost' = matchedEngine
       ? 'innermost'
       : (staticConfig?.strategy ?? 'innermost');
 
-    let mode: NukeMode = DEFAULT_SETTINGS.mode;
+    let mode: NukeMode = 'nuke';
     let nukeCount = 0;
     let nukedElements = new WeakSet<Element>();
     let stylesInjected = false;
@@ -366,6 +308,23 @@ export default defineContentScript({
       return result;
     }
 
+    function cleanupAllNuked() {
+      nukeVisibilityObserver.disconnect();
+      document.querySelectorAll('.emnuke-nuke, .emnuke-hidden, .emnuke-highlight, .emnuke-filter').forEach((el) => {
+        el.classList.remove('emnuke-nuke', 'emnuke-hidden', 'emnuke-highlight', 'emnuke-filter');
+        (el as HTMLElement).style.maxHeight = '';
+      });
+      document.querySelectorAll('.emnuke-redacted').forEach((el) => {
+        const original = el.getAttribute('data-emnuke-original');
+        if (original !== null) {
+          el.innerHTML = original;
+          el.removeAttribute('data-emnuke-original');
+        }
+        el.classList.remove('emnuke-redacted');
+      });
+      nukedElements = new WeakSet();
+    }
+
     function redactElement(el: Element) {
       el.setAttribute('data-emnuke-original', el.innerHTML);
       el.innerHTML = '<img src="' + browser.runtime.getURL('/icon/icon.svg') + '" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">[nuked: AI generated]';
@@ -448,12 +407,8 @@ export default defineContentScript({
       browser.storage.local.set({ nukeCount });
     }
 
-    function hasDash(text: string): boolean {
-      return text.includes(EM_DASH);
-    }
-
     function scanTextNode(node: Text) {
-      if (!node.textContent || !hasDash(node.textContent)) return;
+      if (!node.textContent?.includes(EM_DASH)) return;
       const block = findContentBlock(node);
       if (block) nukeElement(block);
     }
@@ -500,10 +455,7 @@ export default defineContentScript({
         activeCardSelectors = await getSearchEngineSelectors(matchedEngine.file);
       }
 
-      const settings = await browser.storage.local.get(
-        DEFAULT_SETTINGS as unknown as Record<string, unknown>,
-      );
-      const s = settings as unknown as NukeSettings;
+      const s = await loadSettings();
       mode = s.mode;
       nukeCount = s.nukeCount;
       siteExcluded = s.excludedSites.includes(location.hostname);
@@ -519,22 +471,8 @@ export default defineContentScript({
         const excluded = (changes.excludedSites.newValue as string[])
           .includes(location.hostname);
         if (excluded && !siteExcluded) {
-          // Site just got excluded: tear down everything
           siteExcluded = true;
-          nukeVisibilityObserver.disconnect();
-          document.querySelectorAll('.emnuke-nuke, .emnuke-hidden, .emnuke-highlight, .emnuke-filter').forEach((el) => {
-            el.classList.remove('emnuke-nuke', 'emnuke-hidden', 'emnuke-highlight', 'emnuke-filter');
-            (el as HTMLElement).style.maxHeight = '';
-          });
-          document.querySelectorAll('.emnuke-redacted').forEach((el) => {
-            const original = el.getAttribute('data-emnuke-original');
-            if (original !== null) {
-              el.innerHTML = original;
-              el.removeAttribute('data-emnuke-original');
-            }
-            el.classList.remove('emnuke-redacted');
-          });
-          nukedElements = new WeakSet();
+          cleanupAllNuked();
           observer?.disconnect();
           observer = null;
           return;
@@ -553,27 +491,7 @@ export default defineContentScript({
         mode = changes.mode.newValue as NukeMode;
         if (siteExcluded) return;
 
-        // Always clean up previous state
-        nukeVisibilityObserver.disconnect();
-        document.querySelectorAll('.emnuke-nuke').forEach((el) => {
-          el.classList.remove('emnuke-nuke');
-          (el as HTMLElement).style.maxHeight = '';
-        });
-        document.querySelectorAll('.emnuke-hidden').forEach((el) => {
-          el.classList.remove('emnuke-hidden');
-        });
-        document.querySelectorAll('.emnuke-highlight').forEach((el) => {
-          el.classList.remove('emnuke-highlight');
-        });
-        document.querySelectorAll('.emnuke-redacted').forEach((el) => {
-          const original = el.getAttribute('data-emnuke-original');
-          if (original !== null) {
-            el.innerHTML = original;
-            el.removeAttribute('data-emnuke-original');
-          }
-          el.classList.remove('emnuke-redacted');
-        });
-        nukedElements = new WeakSet();
+        cleanupAllNuked();
 
         if (mode === 'off' || siteExcluded) {
           observer?.disconnect();

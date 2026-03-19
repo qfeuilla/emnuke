@@ -1,5 +1,5 @@
 import './style.css';
-import { type NukeMode, DEFAULT_SETTINGS } from '@/utils/types';
+import { type NukeMode, loadSettings } from '@/utils/types';
 
 const countEl = document.getElementById('count')!;
 const modeBtns = document.querySelectorAll<HTMLButtonElement>('.mode-btn');
@@ -23,11 +23,7 @@ function updateExcludeBtn() {
   excludeBtn.classList.toggle('excluded', isExcluded);
 }
 
-// Load current state
-browser.storage.local.get(
-  DEFAULT_SETTINGS as unknown as Record<string, unknown>,
-).then((settings) => {
-  const s = settings as unknown as typeof DEFAULT_SETTINGS;
+loadSettings().then((s) => {
   countEl.textContent = s.nukeCount.toLocaleString();
   setActiveMode(s.mode);
   excludedSites = s.excludedSites;
@@ -38,11 +34,9 @@ browser.storage.local.get(
 browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
   const url = tabs[0]?.url;
   if (!url) return;
-  try {
-    currentHostname = new URL(url).hostname;
-    excludeBtn.style.display = '';
-    updateExcludeBtn();
-  } catch {}
+  currentHostname = new URL(url).hostname;
+  excludeBtn.style.display = '';
+  updateExcludeBtn();
 });
 
 // Mode switching

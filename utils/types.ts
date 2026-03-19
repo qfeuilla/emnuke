@@ -11,3 +11,9 @@ export const DEFAULT_SETTINGS: NukeSettings = {
   nukeCount: 0,
   excludedSites: [],
 };
+
+export function loadSettings(): Promise<NukeSettings> {
+  return browser.storage.local
+    .get(DEFAULT_SETTINGS as unknown as Record<string, unknown>)
+    .then((s) => s as unknown as NukeSettings);
+}
