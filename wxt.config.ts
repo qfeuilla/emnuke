@@ -13,6 +13,9 @@ export default defineConfig({
           strict_min_version: '109.0',
         },
       },
+      data_collection_permissions: {
+        data_not_collected: true,
+      },
     }),
     ...(browser === 'opera' && {
       minimum_opera_version: '91',
