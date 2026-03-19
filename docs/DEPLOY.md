@@ -53,7 +53,7 @@ Note: Firefox temporary add-ons are removed when you close Firefox. For permanen
 
 ### Safari
 1. Requires macOS with Xcode installed
-2. Run `xcrun safari-web-extension-converter .output/safari-mv3` to create an Xcode project
+2. Run `xcrun safari-web-extension-converter .output/safari-mv2` to create an Xcode project
 3. Build and sign in Xcode
 4. Distribute via the Mac App Store or direct download
 

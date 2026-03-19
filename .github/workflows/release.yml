@@ -29,7 +29,7 @@ jobs:
           cd .output/chrome-mv3 && zip -r "../../emnuke-${VERSION}-chrome.zip" . && cd ../..
           cd .output/firefox-mv2 && zip -r "../../emnuke-${VERSION}-firefox.zip" . && cd ../..
           cd .output/edge-mv3 && zip -r "../../emnuke-${VERSION}-edge.zip" . && cd ../..
-          cd .output/safari-mv3 && zip -r "../../emnuke-${VERSION}-safari.zip" . && cd ../..
+          cd .output/safari-mv2 && zip -r "../../emnuke-${VERSION}-safari.zip" . && cd ../..
           cd .output/opera-mv3 && zip -r "../../emnuke-${VERSION}-opera.zip" . && cd ../..
 
       - name: Create GitHub Release
