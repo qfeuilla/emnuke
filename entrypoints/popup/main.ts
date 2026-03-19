@@ -30,11 +30,13 @@ loadSettings().then((s) => {
   updateExcludeBtn();
 });
 
-// Get active tab hostname
-browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-  const url = tabs[0]?.url;
-  if (!url) return;
-  currentHostname = new URL(url).hostname;
+// Get active tab hostname via content script
+browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+  const tabId = tabs[0]?.id;
+  if (tabId == null) return;
+  const hostname = await browser.tabs.sendMessage(tabId, 'getHostname');
+  if (!hostname) return;
+  currentHostname = hostname;
   excludeBtn.style.display = '';
   updateExcludeBtn();
 });

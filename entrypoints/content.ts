@@ -507,5 +507,9 @@ export default defineContentScript({
       }
     });
 
+    browser.runtime.onMessage.addListener((msg) => {
+      if (msg === 'getHostname') return Promise.resolve(location.hostname);
+    });
+
   },
 });
