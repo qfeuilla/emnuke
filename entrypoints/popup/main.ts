@@ -24,8 +24,10 @@ function updateExcludeBtn() {
 }
 
 // Load current state
-browser.storage.local.get(DEFAULT_SETTINGS).then((settings) => {
-  const s = settings as typeof DEFAULT_SETTINGS;
+browser.storage.local.get(
+  DEFAULT_SETTINGS as unknown as Record<string, unknown>,
+).then((settings) => {
+  const s = settings as unknown as typeof DEFAULT_SETTINGS;
   countEl.textContent = s.nukeCount.toLocaleString();
   setActiveMode(s.mode);
   excludedSites = s.excludedSites;
@@ -68,7 +70,7 @@ excludeBtn.addEventListener('click', () => {
 // Live updates
 browser.storage.onChanged.addListener((changes) => {
   if (changes.nukeCount) {
-    countEl.textContent = changes.nukeCount.newValue.toLocaleString();
+    countEl.textContent = (changes.nukeCount.newValue as number).toLocaleString();
   }
   if (changes.mode) {
     setActiveMode(changes.mode.newValue as NukeMode);
