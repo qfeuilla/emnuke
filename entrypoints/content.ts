@@ -143,6 +143,7 @@ export default defineContentScript({
     let mode: NukeMode = 'nuke';
     let nukeCount = 0;
     let nukedElements = new WeakSet<Element>();
+    const originalNodes = new Map<Element, Node[]>();
     let stylesInjected = false;
     let siteExcluded = false;
 
@@ -315,10 +316,11 @@ export default defineContentScript({
         (el as HTMLElement).style.maxHeight = '';
       });
       document.querySelectorAll('.emnuke-redacted').forEach((el) => {
-        const original = el.getAttribute('data-emnuke-original');
-        if (original !== null) {
-          el.innerHTML = original;
-          el.removeAttribute('data-emnuke-original');
+        const backup = originalNodes.get(el);
+        if (backup) {
+          el.textContent = '';
+          for (const child of backup) el.appendChild(child.cloneNode(true));
+          originalNodes.delete(el);
         }
         el.classList.remove('emnuke-redacted');
       });
@@ -326,8 +328,12 @@ export default defineContentScript({
     }
 
     function redactElement(el: Element) {
-      el.setAttribute('data-emnuke-original', el.innerHTML);
-      el.innerHTML = '<img src="' + browser.runtime.getURL('/icon/icon.svg') + '" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">[nuked: AI generated]';
+      originalNodes.set(el, Array.from(el.childNodes).map((n) => n.cloneNode(true)));
+      const icon = document.createElement('img');
+      icon.src = browser.runtime.getURL('/icon/icon.svg');
+      icon.style.cssText = 'width:16px;height:16px;vertical-align:middle;margin-right:4px;';
+      el.textContent = '';
+      el.append(icon, '[nuked: AI generated]');
       el.classList.add('emnuke-redacted');
     }
 
