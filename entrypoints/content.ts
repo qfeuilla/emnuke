@@ -1,4 +1,4 @@
-import { type NukeMode, type NukeSettings, loadSettings } from '@/utils/types';
+import { type NukeMode, type NukeSettings, loadSettings, isSiteActive } from '@/utils/types';
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -465,7 +465,7 @@ export default defineContentScript({
       const s = await loadSettings();
       mode = s.mode;
       nukeCount = s.nukeCount;
-      siteExcluded = s.excludedSites.includes(location.hostname);
+      siteExcluded = !isSiteActive(s, location.hostname);
       if (mode !== 'off' && !siteExcluded) {
         observer = startNuking();
       }
@@ -473,20 +473,23 @@ export default defineContentScript({
     init();
 
     // Listen for mode/exclusion changes from popup
-    browser.storage.onChanged.addListener((changes) => {
-      if (changes.excludedSites) {
-        const excluded = (changes.excludedSites.newValue as string[])
-          .includes(location.hostname);
-        if (excluded && !siteExcluded) {
-          siteExcluded = true;
+    browser.storage.onChanged.addListener(async (changes) => {
+      if (changes.mode) {
+        mode = changes.mode.newValue as NukeMode;
+      }
+
+      if (changes.excludedSites || changes.includedSites || changes.defaultActive) {
+        const s = await loadSettings();
+        const wasExcluded = siteExcluded;
+        siteExcluded = !isSiteActive(s, location.hostname);
+
+        if (siteExcluded && !wasExcluded) {
           cleanupAllNuked();
           observer?.disconnect();
           observer = null;
           return;
         }
-        if (!excluded && siteExcluded) {
-          // Site just got un-excluded: start scanning
-          siteExcluded = false;
+        if (!siteExcluded && wasExcluded) {
           if (mode !== 'off') {
             observer = startNuking();
           }
@@ -495,19 +498,17 @@ export default defineContentScript({
       }
 
       if (changes.mode) {
-        mode = changes.mode.newValue as NukeMode;
         if (siteExcluded) return;
 
         cleanupAllNuked();
 
-        if (mode === 'off' || siteExcluded) {
+        if (mode === 'off') {
           observer?.disconnect();
           observer = null;
         } else {
           if (!observer) {
             observer = startNuking();
           } else {
-            // Re-scan with new mode
             scanSubtree(document.body);
           }
         }
