@@ -97,6 +97,7 @@ export default defineContentScript({
       {
         hostnames: ['www.linkedin.com', 'linkedin.com'],
         cardSelectors: [
+          '[data-finite-scroll-hotkey-context="NOTIFICATIONS"] > * > *',
           '.scaffold-finite-scroll__content > div',
         ],
         strategy: 'innermost',
