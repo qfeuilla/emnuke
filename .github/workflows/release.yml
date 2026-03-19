@@ -32,6 +32,15 @@ jobs:
           cd .output/safari-mv2 && zip -r "../../emnuke-${VERSION}-safari.zip" . && cd ../..
           cd .output/opera-mv3 && zip -r "../../emnuke-${VERSION}-opera.zip" . && cd ../..
 
+      - name: Submit to Firefox AMO
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          npx wxt submit \
+            --firefox-zip "emnuke-${VERSION}-firefox.zip" \
+            --firefox-extension-id "extension@emnuke.com" \
+            --firefox-jwt-issuer "${{ secrets.AMO_JWT_ISSUER }}" \
+            --firefox-jwt-secret "${{ secrets.AMO_JWT_SECRET }}"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
