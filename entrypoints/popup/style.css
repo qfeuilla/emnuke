@@ -24,6 +24,14 @@ h1 {
   letter-spacing: 2px;
   text-transform: uppercase;
   color: #ff6b35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  width: 28px;
+  height: 28px;
 }
 
 .tagline {
@@ -81,6 +89,12 @@ h1 {
   width: 100%;
 }
 
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
 .mode-btn {
   flex: 1;
   padding: 8px 4px;
@@ -104,5 +118,28 @@ h1 {
 .mode-btn.active {
   background: rgba(255, 107, 53, 0.2);
   border-color: #ff6b35;
+  color: #ff6b35;
+}
+
+.exclude-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #888;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.exclude-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.exclude-btn.excluded {
+  background: rgba(255, 107, 53, 0.15);
+  border-color: rgba(255, 107, 53, 0.4);
   color: #ff6b35;
 }

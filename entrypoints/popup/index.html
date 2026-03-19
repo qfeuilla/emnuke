@@ -8,18 +8,19 @@
   </head>
   <body>
     <div class="container">
-      <h1>☢️ emnuke</h1>
+      <h1><img src="/icon/icon.svg" class="header-icon" alt="emnuke"> emnuke</h1>
       <p class="tagline">Purging em dashes from the web</p>
       <div class="counter">
         <span id="count">0</span>
         <span class="label">blocks nuked</span>
       </div>
 <div class="mode-selector">
-        <button class="mode-btn active" data-mode="nuke">☢️ Nuke</button>
+        <button class="mode-btn active" data-mode="nuke"><img src="/icon/icon.svg" class="btn-icon" alt=""> Nuke</button>
         <button class="mode-btn" data-mode="highlight">🔍 Highlight</button>
         <button class="mode-btn" data-mode="filter">🔇 Filter</button>
         <button class="mode-btn" data-mode="off">💤 Off</button>
       </div>
+      <button id="exclude-btn" class="exclude-btn" style="display: none;"></button>
     </div>
     <script type="module" src="./main.ts"></script>
   </body>

@@ -29,9 +29,18 @@ export default defineContentScript({
     const CACHE_KEY = 'ublacklistSelectorsCache';
     const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+    // Extra container selectors per engine (stable data attributes that
+    // uBlacklist doesn't use because they target URLs, not containers).
+    // These get merged with the dynamic selectors.
+    const EXTRA_SELECTORS: Record<string, string[]> = {
+      'google.yml': [
+        '[data-docid]',  // Image result cards
+      ],
+    };
+
     // Hardcoded fallbacks per engine (from uBlacklist configs, 2026-03-06)
     const FALLBACK_SELECTORS: Record<string, string[]> = {
-      'google.yml': ['.vt6azd:not(.g-blk)', '[data-news-cluster-id]', '.sHEJob', '.vCUuC', '.eejeod'],
+      'google.yml': ['.vt6azd:not(.g-blk)', '[data-news-cluster-id]', '.sHEJob', '.vCUuC', '.eejeod', '[data-docid]'],
       'bing.yml': ['.b_algo', '.news-card', '.newscard'],
       'duckduckgo.yml': [],
       'brave.yml': ['.snippet[data-type="web"]', '.snippet[data-type="news"]', '.snippet[data-type="videos"]', '.image-result'],
@@ -55,28 +64,29 @@ export default defineContentScript({
     }
 
     async function getSearchEngineSelectors(file: string): Promise<string[]> {
+      const extras = EXTRA_SELECTORS[file] ?? [];
       const cacheKeyForFile = `${CACHE_KEY}_${file}`;
       try {
         const cached = await browser.storage.local.get(cacheKeyForFile);
         const entry = cached[cacheKeyForFile] as { selectors: string[]; ts: number } | undefined;
         if (entry && Date.now() - entry.ts < CACHE_TTL) {
-          return entry.selectors;
+          return [...new Set([...entry.selectors, ...extras])];
         }
       } catch {}
 
       const fallback = FALLBACK_SELECTORS[file] ?? [];
       try {
         const res = await fetch(UBLACKLIST_BASE + file);
-        if (!res.ok) return fallback;
+        if (!res.ok) return [...new Set([...fallback, ...extras])];
         const yaml = await res.text();
         const selectors = parseSelectorsFromYaml(yaml);
-        if (selectors.length === 0) return fallback;
+        if (selectors.length === 0) return [...new Set([...fallback, ...extras])];
         browser.storage.local.set({
           [cacheKeyForFile]: { selectors, ts: Date.now() },
         });
-        return selectors;
+        return [...new Set([...selectors, ...extras])];
       } catch {
-        return fallback;
+        return [...new Set([...fallback, ...extras])];
       }
     }
 
@@ -192,6 +202,7 @@ export default defineContentScript({
     let nukeCount = 0;
     let nukedElements = new WeakSet<Element>();
     let stylesInjected = false;
+    let siteExcluded = false;
 
     function injectStyles() {
       if (stylesInjected) return;
@@ -243,12 +254,14 @@ export default defineContentScript({
         }
 
         .emnuke-nuke::after {
-          content: '☢️';
+          content: '';
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          font-size: 2rem;
+          width: 48px;
+          height: 48px;
+          background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+CjwhLS0gU1ZHIGNyZWF0ZWQgd2l0aCBBcnJvdywgYnkgUXVpdmVyQUkgKGh0dHBzOi8vcXVpdmVyLmFpKSAtLT4KICA8cGF0aCBkPSJtMTk0LjkgMTAwLjNjMCA1MS42Ny00My45MyA5NC41LTk1LjI5IDk0LjUtNTEuOSAwLTk0LjY1LTQyLjc0LTk0LjY1LTk0LjUgMC01Mi4yIDQyLjc3LTk1LjI2IDk0LjY1LTk1LjI2IDUxLjM2IDAgOTUuMjkgNDIuODMgOTUuMjkgOTUuMjZ6IiBmaWxsPSIjRjhEQTMwIi8+CiAgPHBhdGggZD0ibTk5LjUzIDUuMDF2MTg5LjdjNTEuNiAwIDk1LjM4LTQyLjg0IDk1LjM4LTk0LjUgMC01Mi40My00My43OC05NS4yNC05NS4zOC05NS4yNHoiIGZpbGw9IiNGNEMzMDAiLz4KICA8cGF0aCBkPSJtMTg0LjMgOTEuNzdjLTIuMDQtMjEuMTMtMTIuMzQtNDEuNy0yOS42NS01Ni44NGwtNC45MS0yLjg3Yy00LjU2LTMuNC05Ljg0LTEuNjMtMTIuMDcgMi4ybC0yMi42NCAzOS4yIDAuMDQgMC4xMWM5LjQgNS43NCAxNS41MSAxNC42MSAxNS42MyAyNi4xM2g0NS4wN2M0LjcxIDAgOC45Mi0zLjU4IDguNTMtNy45M3oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0Y4REEzMCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2Utd2lkdGg9Ii41Ii8+CiAgPHBhdGggZD0ibTEzOC4xIDE2NS43LTIyLjYyLTM4LjkyYy01LjYyIDMuNjctMTAuNjMgNC4zNy0xNi4wNCA0LjItNi4yLTAuMi05Ljg1LTEuNDYtMTQuODUtNC4yNGwtMjMuMDUgMzguNDhjLTIuNzIgNC44NC0xLjI3IDkuOTEgNC45NiAxMi4yMSA5Ljg0IDQuMjIgMjAuNzggNi41NiAzMi45NCA2LjU2IDEyLjA3IDAgMjMuODgtMi45NyAzNS4xMi03Ljc3IDUuMTktMi4xMSA1LjU1LTcuMjEgMy41NC0xMC41MnoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0Y4REEzMCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2Utd2lkdGg9Ii41Ii8+CiAgPHBhdGggZD0ibTE1LjA1IDkxLjc3YzItMjAuNDkgMTEuMTItNDAuMDkgMjguMjctNTQuOTZsNS41Ny00LjUyYzQuOTgtMy42NSAxMC40NC0yLjg5IDEzLjE0IDEuOTdsMjIuNjMgMzguODgtMC4wOSAwLjM3Yy05LjQxIDUuNzQtMTUuMiAxNC42Ny0xNS4zMSAyNi4xOWgtNDUuMzdjLTQuNyAwLTkuMjEtMy41OC04Ljg0LTcuOTN6IiBmaWxsPSIjMDAwIiBzdHJva2U9IiNGOERBMzAiIHN0cm9rZS1taXRlcmxpbWl0PSIxMCIgc3Ryb2tlLXdpZHRoPSIuNSIvPgogIDxwYXRoIGQ9Im05OS41OCA3Ni45MWMtMTIuNyAwLTIyLjc0IDEwLjczLTIyLjc0IDIzLjExIDAgMTIuMzcgMTAuMjggMjIuNDcgMjIuNTcgMjIuNDcgMTIuMyAwIDIzLjIxLTEwLjY2IDIzLjIxLTIyLjY4IDAtMTIuMDMtMTAuNDQtMjIuOS0yMy4wNC0yMi45em0xNS4wOCAyNi43aC0yOS43NnYtNy43aDI5Ljc2djcuN3oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI0Y4REEzMCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2Utd2lkdGg9Ii41Ii8+Cjwvc3ZnPg==') no-repeat center / contain;
           z-index: 999999;
           animation: emnuke-icon-pop 0.8s ease-out forwards;
           pointer-events: none;
@@ -355,7 +368,7 @@ export default defineContentScript({
 
     function redactElement(el: Element) {
       el.setAttribute('data-emnuke-original', el.innerHTML);
-      el.innerHTML = '☢️ [nuked: AI generated]';
+      el.innerHTML = '<img src="' + browser.runtime.getURL('/icon/icon.svg') + '" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">[nuked: AI generated]';
       el.classList.add('emnuke-redacted');
     }
 
@@ -493,17 +506,52 @@ export default defineContentScript({
       const s = settings as unknown as NukeSettings;
       mode = s.mode;
       nukeCount = s.nukeCount;
-      if (mode !== 'off') {
+      siteExcluded = s.excludedSites.includes(location.hostname);
+      if (mode !== 'off' && !siteExcluded) {
         observer = startNuking();
       }
     }
     init();
 
-    // Listen for mode changes from popup
+    // Listen for mode/exclusion changes from popup
     browser.storage.onChanged.addListener((changes) => {
+      if (changes.excludedSites) {
+        const excluded = (changes.excludedSites.newValue as string[])
+          .includes(location.hostname);
+        if (excluded && !siteExcluded) {
+          // Site just got excluded: tear down everything
+          siteExcluded = true;
+          nukeVisibilityObserver.disconnect();
+          document.querySelectorAll('.emnuke-nuke, .emnuke-hidden, .emnuke-highlight, .emnuke-filter').forEach((el) => {
+            el.classList.remove('emnuke-nuke', 'emnuke-hidden', 'emnuke-highlight', 'emnuke-filter');
+            (el as HTMLElement).style.maxHeight = '';
+          });
+          document.querySelectorAll('.emnuke-redacted').forEach((el) => {
+            const original = el.getAttribute('data-emnuke-original');
+            if (original !== null) {
+              el.innerHTML = original;
+              el.removeAttribute('data-emnuke-original');
+            }
+            el.classList.remove('emnuke-redacted');
+          });
+          nukedElements = new WeakSet();
+          observer?.disconnect();
+          observer = null;
+          return;
+        }
+        if (!excluded && siteExcluded) {
+          // Site just got un-excluded: start scanning
+          siteExcluded = false;
+          if (mode !== 'off') {
+            observer = startNuking();
+          }
+          return;
+        }
+      }
+
       if (changes.mode) {
-        const prevMode = mode;
         mode = changes.mode.newValue as NukeMode;
+        if (siteExcluded) return;
 
         // Always clean up previous state
         nukeVisibilityObserver.disconnect();
@@ -527,7 +575,7 @@ export default defineContentScript({
         });
         nukedElements = new WeakSet();
 
-        if (mode === 'off') {
+        if (mode === 'off' || siteExcluded) {
           observer?.disconnect();
           observer = null;
         } else {

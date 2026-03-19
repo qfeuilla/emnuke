@@ -4,7 +4,7 @@ export default defineConfig({
   manifest: ({ browser }) => ({
     name: 'emnuke',
     description: 'Nukes everything with em dashes from the DOM',
-    permissions: ['storage'],
+    permissions: ['storage', 'tabs'],
     host_permissions: ['https://raw.githubusercontent.com/*'],
     ...(browser === 'firefox' && {
       browser_specific_settings: {
