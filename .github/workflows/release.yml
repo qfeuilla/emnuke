@@ -48,10 +48,10 @@ jobs:
             emnuke-*-opera.zip
 
       - name: Submit to Firefox AMO
-        uses: kewisch/action-web-ext@v1
-        with:
-          cmd: sign
-          source: emnuke-${{ env.VERSION }}-firefox.zip
-          channel: listed
-          apiKey: ${{ secrets.AMO_JWT_ISSUER }}
-          apiSecret: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx web-ext sign \
+            --source-dir .output/firefox-mv2/ \
+            --channel listed \
+            --api-key "${{ secrets.AMO_JWT_ISSUER }}" \
+            --api-secret "${{ secrets.AMO_JWT_SECRET }}" \
+            || echo "::warning::AMO submission exited with $? (expected for listed channel)"
