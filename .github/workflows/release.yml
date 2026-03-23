@@ -44,7 +44,6 @@ jobs:
             emnuke-*-opera.zip
 
       - name: Submit to Firefox AMO
-        continue-on-error: true
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           npx wxt submit \
