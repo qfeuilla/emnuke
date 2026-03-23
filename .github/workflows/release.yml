@@ -46,10 +46,10 @@ jobs:
             emnuke-*-opera.zip
 
       - name: Submit to Firefox AMO
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          npx wxt submit \
-            --firefox-zip "emnuke-${VERSION}-firefox.zip" \
-            --firefox-extension-id "extension@emnuke.com" \
-            --firefox-jwt-issuer "${{ secrets.AMO_JWT_ISSUER }}" \
-            --firefox-jwt-secret "${{ secrets.AMO_JWT_SECRET }}"
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: sign
+          source: .output/firefox-mv2/
+          channel: listed
+          apiKey: ${{ secrets.AMO_JWT_ISSUER }}
+          apiSecret: ${{ secrets.AMO_JWT_SECRET }}
