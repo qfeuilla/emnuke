@@ -47,6 +47,15 @@ jobs:
             emnuke-*-safari.zip
             emnuke-*-opera.zip
 
+      - name: Submit to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v5.0.0
+        with:
+          file-path: emnuke-${{ env.VERSION }}-chrome.zip
+          extension-id: biiccplhgoolppceidodpgifbhimgngo
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
       - name: Submit to Firefox AMO
         run: |
           npx web-ext sign \
