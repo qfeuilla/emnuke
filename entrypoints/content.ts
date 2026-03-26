@@ -9,6 +9,8 @@ export default defineContentScript({
       hostnames: string[];
       cardSelectors: string[];
       strategy: 'innermost' | 'outermost';
+      /** Return true to skip nuking this text node */
+      skipTextNode?: (node: Text) => boolean;
     }
 
     // --- uBlacklist dynamic selectors ---
@@ -16,8 +18,17 @@ export default defineContentScript({
     // https://github.com/ublacklist/builtin
     const UBLACKLIST_BASE =
       'https://raw.githubusercontent.com/ublacklist/builtin/refs/heads/dist/serpinfo/';
-    const UBLACKLIST_ENGINES: { file: string; hostPattern: RegExp }[] = [
-      { file: 'google.yml', hostPattern: /^(www\.)?google\.\w+(\.\w+)?$/ },
+    const UBLACKLIST_ENGINES: {
+      file: string;
+      hostPattern: RegExp;
+      skipTextNode?: (node: Text) => boolean;
+    }[] = [
+      {
+        file: 'google.yml',
+        hostPattern: /^(www\.)?google\.\w+(\.\w+)?$/,
+        // Google uses "May 13, 2018 — " as date separators in snippets
+        skipTextNode: (node) => node.textContent?.trim() === EM_DASH,
+      },
       { file: 'bing.yml', hostPattern: /^(www\d?|cn)\.bing\.com$/ },
       { file: 'duckduckgo.yml', hostPattern: /^(safe\.|start\.|noai\.)?duckduckgo\.com$/ },
       { file: 'brave.yml', hostPattern: /^search\.brave\.com$/ },
@@ -414,8 +425,11 @@ export default defineContentScript({
       browser.storage.local.set({ nukeCount });
     }
 
+    const activeSkipTextNode = matchedEngine?.skipTextNode ?? staticConfig?.skipTextNode;
+
     function scanTextNode(node: Text) {
       if (!node.textContent?.includes(EM_DASH)) return;
+      if (activeSkipTextNode?.(node)) return;
       const block = findContentBlock(node);
       if (block) nukeElement(block);
     }
