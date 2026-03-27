@@ -51,11 +51,13 @@ loadSettings().then((s) => {
 browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
   const tabId = tabs[0]?.id;
   if (tabId == null) return;
-  const hostname = await browser.tabs.sendMessage(tabId, 'getHostname');
-  if (!hostname) return;
-  currentHostname = hostname;
-  excludeBtn.style.display = '';
-  updateExcludeBtn();
+  try {
+    const hostname = await browser.tabs.sendMessage(tabId, 'getHostname');
+    if (!hostname) return;
+    currentHostname = hostname;
+    excludeBtn.style.display = '';
+    updateExcludeBtn();
+  } catch { /* content script not injected on this page */ }
 });
 
 // Default active toggle
