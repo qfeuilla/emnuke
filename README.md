@@ -65,7 +65,7 @@ pnpm build:all      # Build Chrome, Firefox, Edge, Safari, Opera
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add support for new sites.
 
-## "But isn't this anti-AI?"
+## Is this anti-AI?
 
 No. AI-assisted creation can be cool. What's not cool is lazy bastards who copy-paste raw ChatGPT output and call it a day. If you can't even be bothered to clean up the em dashes, your content shouldn't exist on the internet. This extension just makes that happen automatically.
 
